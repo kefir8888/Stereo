@@ -1,11 +1,11 @@
 # include <SFML/Graphics.hpp>
 
-const int PICT_X = 505;//1002; //960; //280;
-const int PICT_Y = 621;//900;  //658; //210;
+const int PICT_X = 280;//505;//1002; //960; //280;
+const int PICT_Y = 210;//621;//900;  //658; //210;
 
 const int SPACE = 10; //Space between pictures.
 
-const int WIND_X = PICT_X + 2 * SPACE; //2 * PICT_X + 3 * SPACE;
+const int WIND_X = PICT_X * 2 + 3 * SPACE; //2 * PICT_X + 3 * SPACE;
 const int WIND_Y = PICT_Y + 2 * SPACE; //2 * PICT_Y + 3 * SPACE;
 
 const int BLOCK_SIZE = 10;
@@ -72,7 +72,24 @@ void calculate_depths (Image& left, Image& right, Image& depth)
 			}
 		}
 	}
-	
+
+void smooth_depth (Image& depth)
+	{
+	for (int i = 3; i < WIND_X - 3; i ++)
+		for (int j = 3; j < WIND_Y - 3; j ++)
+			{
+			int sum = 0;
+			
+			for (int k = -1; k < 2; k ++)
+				for (int l = -1; l < 2; l ++)
+					{
+					sum += depth.getPixel (i + k, j + l).r;
+					}
+			
+			depth.setPixel (i, j, Color (sum / 9, sum / 9, sum / 9));
+			}
+	}
+
 int main()
 	{
 	RenderWindow App (sf::VideoMode (WIND_X, WIND_Y, 32), "Elijah stereo _demo.");
@@ -85,8 +102,8 @@ int main()
 	
 	//const Image& im = pict;
 	
-	if (!left.loadFromFile  ("girl_l.png")) return -1;
-	if (!right.loadFromFile ("girl_r.png")) return -1;
+	if (!left.loadFromFile  ("left.png")) return -1;
+	if (!right.loadFromFile ("right.png")) return -1;
 	depth.create  (PICT_X, PICT_Y, Color (200, 100, 100));
 	result.create (PICT_X, PICT_Y, Color (100, 200, 100));
 	
@@ -94,6 +111,7 @@ int main()
 	bool   to_refresh = true;
 	
 	calculate_depths (left, right, depth);
+	smooth_depth (depth);
 	
 	while (App.isOpen())
 		{
@@ -128,7 +146,7 @@ int main()
 		
 		//PLACE_PICTURE (left,   0, 0)
 		//PLACE_PICTURE (right,  1, 0)
-		//PLACE_PICTURE (depth,  0, 1)
+		PLACE_PICTURE (depth,  1, 0)
 		PLACE_PICTURE (result, 0, 0)
 		
 		App.display();
