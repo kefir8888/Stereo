@@ -7,8 +7,8 @@ int PICT_Y = 0;//621; //621;//900;  //658; //210;
 
 const int SPACE = 10; //Space between pictures.
 
-int WIND_X = PICT_X * 2 + 3 * SPACE; //2 * PICT_X + 3 * SPACE;
-int WIND_Y = PICT_Y + 2 * SPACE; //2 * PICT_Y + 3 * SPACE;
+int WIND_X = PICT_X * 2 + 3 * SPACE;
+int WIND_Y = PICT_Y + 2 * SPACE;
 
 const int BLOCK_SIZE = 10;
 const int MAX_BLOCK_SHIFT = 20;
@@ -24,7 +24,7 @@ using namespace sf;
 	sprite.setTexture  (output_texture); 					  \
 	App.draw(sprite); 
 
-void render_to_image (Image& source, Image& target, Image& depth, double ang, bool right)
+void render_to_image (Image& source, Image& target, Image& depth, double ang, bool right, Image& filled)
 	{
 	for (int i = 0; i < PICT_X; i ++)
 		for (int j = 0; j < PICT_Y; j ++)
@@ -37,20 +37,90 @@ void render_to_image (Image& source, Image& target, Image& depth, double ang, bo
 			if (x > PICT_X || x < 0) continue;
 			
 			target.setPixel (x, j, source.getPixel (i, j));
+			filled.setPixel (x, j, Color (1, 1, 1));
 			}
 	
 	}
 
-void calc_res (Image& left, Image& right, Image& result, Image& depth, double ang, Image& tl, Image& tr, Image& filled)
+int bound (int inp, int min, int max)
 	{
-	if (ang < 0.5) 	  render_to_image (left,  result, depth, ang, false);
-	else if (ang >= 0.5) render_to_image (right, result, depth, ang, true);
+	if (inp < min) return min;
+	if (inp > max) return max;
 	
-	else
-		{
-		render_to_image (left, result, depth, ang, false);
-		}
+	return inp;
 	}
+
+void calc_res (Image& left, Image& right, Image& result, Image& depth, double ang, Image& tl,
+	       Image& tr, Image& filled1, Image& filled2)
+	{
+	render_to_image (right, tr, depth, ang, true,  filled2);
+	render_to_image (left,  tl, depth, ang, false, filled1);
+	
+	for (int i = 0; i < PICT_X; i ++)
+		for (int j = 0; j < PICT_Y; j ++)
+			{
+			if (!filled1.getPixel (i, j).r)
+				{
+				if (!filled2.getPixel (i, j).r)
+					{
+					Color col (0, 0, 0);
+					
+					for (int k = -1; k < 2; k ++)
+						for (int l = -1; l < 2; l ++)
+							{
+							Color temp = tl.getPixel (bound (i + k, 0, PICT_X),
+										  bound (j + l, 0, PICT_Y));
+							col.r += temp.r;
+							col.g += temp.g;
+							col.b += temp.b;
+							}
+					
+					col.r /= 9;
+					col.g /= 9;
+					col.b /= 9;
+					
+					result.setPixel (i, j, col);
+					}
+				
+				else result.setPixel (i, j, tr.getPixel (i, j));
+				}
+			
+			else result.setPixel (i, j, tr.getPixel (i, j));
+			}
+	
+	for (int i = 0; i < PICT_X; i ++)
+		for (int j = 0; j < PICT_Y; j ++)
+			{
+			Color temp = result.getPixel (i, j);
+			
+			if (temp.r > 250 && temp.g > 250 && temp.b > 250)
+				{
+				//result.setPixel (i, j, Color (255, 0, 0));
+				
+				int r = 0;
+				int g = 0;
+				int b = 0;
+					
+				for (int k = -1; k < 2; k ++)
+					for (int l = -1; l < 2; l ++)
+						{
+						Color tempo = tl.getPixel (bound (i + k, 0, PICT_X),
+									  bound (j + l, 0, PICT_Y));
+						r += tempo.r;
+						g += tempo.g;
+						b += tempo.b;
+						}
+				
+				r /= 9;
+				g /= 9;
+				b /= 9;
+				
+				result.setPixel (i, j, Color (r, g, b));
+				
+				}
+			}
+	}
+	
 
 void calculate_depths (Image& left, Image& right, Image& depth)
 	{
@@ -152,7 +222,8 @@ int main (int argc, char** argv)
 	Image depth;
 	Image temp_res_l;
 	Image temp_res_r;
-	Image _filled;
+	Image _filled1;
+	Image _filled2;
 	Image result;
 	Texture output_texture;
 	
@@ -174,7 +245,8 @@ int main (int argc, char** argv)
 	result.create (PICT_X, PICT_Y, Color (100, 200, 100));
 	temp_res_l.create (PICT_X, PICT_Y, Color (100, 200, 100));
 	temp_res_r.create (PICT_X, PICT_Y, Color (100, 200, 100));
-	_filled.create (PICT_X, PICT_Y, Color (0, 0, 0));
+	_filled1.create (PICT_X, PICT_Y, Color (0, 0, 0));
+	_filled2.create (PICT_X, PICT_Y, Color (0, 0, 0));
 	
 	for (int i = 0; i < sz.x / 2; i ++)
 		for (int j = 0; j < sz.y; j ++)
@@ -183,7 +255,7 @@ int main (int argc, char** argv)
 			right.setPixel (i, j, temp.getPixel (i + sz.x / 2, j));
 			}
 	
-	double ang        = ANGLE_STEP;
+	double ang        = -ANGLE_STEP;
 	bool   to_refresh = true;
 	
 	calculate_depths (left, right, depth);
@@ -204,7 +276,7 @@ int main (int argc, char** argv)
                 			case sf::Keyboard::Escape: { App.close(); break; }
 					case sf::Keyboard::Right:
 						{
-						if (ang + ANGLE_STEP <= 2)
+						if (ang + ANGLE_STEP <= 1 + ANGLE_STEP)
 							{
 							ang += ANGLE_STEP;
 							to_refresh = true;
@@ -214,7 +286,7 @@ int main (int argc, char** argv)
 						
 					case sf::Keyboard::Left:
 						{
-						if (ang - ANGLE_STEP >= -1)
+						if (ang - ANGLE_STEP >= -ANGLE_STEP)
 							{
 							ang -= ANGLE_STEP;
 							to_refresh = true;
@@ -229,7 +301,7 @@ int main (int argc, char** argv)
 		
 		if (to_refresh)
 			{
-			calc_res (left, right, result, depth, ang, temp_res_l, temp_res_r, _filled);
+			calc_res (left, right, result, depth, ang, temp_res_l, temp_res_r, _filled1, _filled2);
 			to_refresh = false;
 			}
 		
@@ -239,8 +311,6 @@ int main (int argc, char** argv)
 		const IntRect& rs = pictrect;
 		sf::Sprite sprite;
 		
-		//PLACE_PICTURE (left,   0, 0)
-		//PLACE_PICTURE (right,  1, 0)
 		PLACE_PICTURE (depth,  1, 0)
 		PLACE_PICTURE (result, 0, 0)
 		
