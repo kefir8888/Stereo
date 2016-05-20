@@ -11,8 +11,9 @@ int WIND_X = PICT_X * 2 + 3 * SPACE; //2 * PICT_X + 3 * SPACE;
 int WIND_Y = PICT_Y + 2 * SPACE; //2 * PICT_Y + 3 * SPACE;
 
 const int BLOCK_SIZE = 10;
-
 const int MAX_BLOCK_SHIFT = 20;
+
+const double ANGLE_STEP = 0.02;
 
 using namespace sf;
 
@@ -23,33 +24,36 @@ using namespace sf;
 	sprite.setTexture  (output_texture); 					  \
 	App.draw(sprite); 
 
-void calc_res (Image& left, Image& result, Image& depth, double ang)
+void render_to_image (Image& source, Image& target, Image& depth, double ang, bool right)
 	{
 	for (int i = 0; i < PICT_X; i ++)
 		for (int j = 0; j < PICT_Y; j ++)
 			{
-			int x = i + ang * (depth.getPixel (i, j).r - 128);
+			int x = 0;
+			
+			if (!right) x = i + ang       * (depth.getPixel (i, j).r - 128);
+			else	    x = i + (ang - 1) * (depth.getPixel (i, j).r - 128);
 			
 			if (x > PICT_X || x < 0) continue;
 			
-			result.setPixel (x, j, left.getPixel (i, j));
+			target.setPixel (x, j, source.getPixel (i, j));
 			}
+	
 	}
 
-int bound (int inp, int min, int max)
+void calc_res (Image& left, Image& right, Image& result, Image& depth, double ang, Image& tl, Image& tr, Image& filled)
 	{
-	if (inp < min) return min;
-	if (inp > max) return max;
+	if (ang < 0.5) 	  render_to_image (left,  result, depth, ang, false);
+	else if (ang >= 0.5) render_to_image (right, result, depth, ang, true);
 	
-	return inp;
+	else
+		{
+		render_to_image (left, result, depth, ang, false);
+		}
 	}
 
 void calculate_depths (Image& left, Image& right, Image& depth)
 	{
-	//for (int i = MAX_BLOCK_SHIFT + BLOCK_SIZE  / 2; i < PICT_X - MAX_BLOCK_SHIFT - BLOCK_SIZE  / 2; i ++)
-	//	{
-	//	for (int j = MAX_BLOCK_SHIFT + BLOCK_SIZE / 2; j < PICT_Y - MAX_BLOCK_SHIFT - BLOCK_SIZE / 2; j ++)
-	
 	for (int i = 1; i < PICT_X - 1; i ++)
 		{
 		for (int j = 1; j < PICT_Y - 1; j ++)
@@ -146,6 +150,9 @@ int main (int argc, char** argv)
 	Image left;
 	Image right;
 	Image depth;
+	Image temp_res_l;
+	Image temp_res_r;
+	Image _filled;
 	Image result;
 	Texture output_texture;
 	
@@ -161,12 +168,13 @@ int main (int argc, char** argv)
 	
 	RenderWindow App (sf::VideoMode (WIND_X, WIND_Y, 32), "Elijah stereo _demo.");
 	
-	//if (!left.loadFromFile  ("girl_l.png")) return -1;
-	//if (!right.loadFromFile ("girl_r.png")) return -1;
 	left.create   (sz.x / 2, sz.y, Color (30, 60, 120));
 	right.create  (sz.x / 2, sz.y, Color (60, 120, 30));
 	depth.create  (PICT_X, PICT_Y, Color (200, 100, 100));
 	result.create (PICT_X, PICT_Y, Color (100, 200, 100));
+	temp_res_l.create (PICT_X, PICT_Y, Color (100, 200, 100));
+	temp_res_r.create (PICT_X, PICT_Y, Color (100, 200, 100));
+	_filled.create (PICT_X, PICT_Y, Color (0, 0, 0));
 	
 	for (int i = 0; i < sz.x / 2; i ++)
 		for (int j = 0; j < sz.y; j ++)
@@ -175,7 +183,7 @@ int main (int argc, char** argv)
 			right.setPixel (i, j, temp.getPixel (i + sz.x / 2, j));
 			}
 	
-	double ang        = 0.01;
+	double ang        = ANGLE_STEP;
 	bool   to_refresh = true;
 	
 	calculate_depths (left, right, depth);
@@ -194,8 +202,26 @@ int main (int argc, char** argv)
 				switch (Event.key.code)
                 			{
                 			case sf::Keyboard::Escape: { App.close(); break; }
-					case sf::Keyboard::Right:  { ang += 0.01; to_refresh = true; break; }
-					case sf::Keyboard::Left:   { ang -= 0.01; to_refresh = true; break; }
+					case sf::Keyboard::Right:
+						{
+						if (ang + ANGLE_STEP <= 2)
+							{
+							ang += ANGLE_STEP;
+							to_refresh = true;
+							}
+						break;
+						}
+						
+					case sf::Keyboard::Left:
+						{
+						if (ang - ANGLE_STEP >= -1)
+							{
+							ang -= ANGLE_STEP;
+							to_refresh = true;
+							}
+						break;
+						}
+					
 					default: break;
 					}
 				}
@@ -203,7 +229,7 @@ int main (int argc, char** argv)
 		
 		if (to_refresh)
 			{
-			calc_res (left, result, depth, ang);
+			calc_res (left, right, result, depth, ang, temp_res_l, temp_res_r, _filled);
 			to_refresh = false;
 			}
 		
@@ -219,12 +245,6 @@ int main (int argc, char** argv)
 		PLACE_PICTURE (result, 0, 0)
 		
 		App.display();
-		
-		
-		//for (int i = 0; i < coord / 2; i ++)
-		//	{
-		//	pict.setPixel (coord, i, Color (100, 100, 100));
-		//	}
 		}
 
 	return 0;
