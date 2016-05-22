@@ -55,7 +55,7 @@ struct Picture
 
 void render_to_image (Image& source, Image& target, Image& depth, double ang, bool right, Image& filled, int szx, int szy)
 	{
-	printf ("%i %i ", szx, szy);
+	//printf ("%i %i ", szx, szy);
 	for (int i = 0; i < szx; i ++)
 		for (int j = 0; j < szy; j ++)
 			{
@@ -64,10 +64,10 @@ void render_to_image (Image& source, Image& target, Image& depth, double ang, bo
 			if (!right) x = i + ang       * (depth.getPixel (i, j).r - 128);
 			else	    x = i + (ang - 1) * (depth.getPixel (i, j).r - 128);
 			
-			if (x > PICT_X || x < 0) continue;
+			if (x > szx || x < 0) continue;
 			
-			target.setPixel (i, j, source.getPixel (i, j));
-			filled.setPixel (i, j, Color (1, 1, 1));
+			target.setPixel (x, j, source.getPixel (i, j));
+			filled.setPixel (x, j, Color (1, 1, 1));
 			}
 	
 	}
@@ -90,7 +90,7 @@ void calc_res (Picture& pict, double ang)
 	for (int i = 0; i < pict.size.x; i ++)
 		for (int j = 0; j < pict.size.y; j ++)
 			{
-			/*if (!pict._filled1.getPixel (i, j).r)
+			if (!pict._filled1.getPixel (i, j).r)
 				{
 				if (!pict._filled2.getPixel (i, j).r)
 					{
@@ -116,8 +116,7 @@ void calc_res (Picture& pict, double ang)
 				
 				else pict.result.setPixel (i, j, pict.temp_res_r.getPixel (i, j));
 				}
-			*/
-			/*else */pict.result.setPixel (i, j, pict.temp_res_l.getPixel (i, j));
+			else pict.result.setPixel (i, j, pict.temp_res_l.getPixel (i, j));
 			}
 	
 	/*for (int i = 0; i < PICT_X; i ++)
@@ -273,7 +272,7 @@ int main (int argc, char** argv)
 	while (true)
 		{
 		filescount --;
-		if (filescount <= 0) break;
+		if (filescount <= -1) break;
 		
 		fprintf (stderr, "lalala");
 		if (feof (settings)) break;
@@ -362,6 +361,8 @@ int main (int argc, char** argv)
 		
 		if (to_refresh)
 			{
+			printf ("curr pict %i\n", curr_pict);
+			
 			//calc_res (left, right, result, depth, ang, temp_res_l, temp_res_r, _filled1, _filled2);
 			calc_res (pictures [curr_pict], ang);
 			to_refresh = false;
