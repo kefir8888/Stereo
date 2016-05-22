@@ -1,19 +1,13 @@
-# include <SFML/Graphics.hpp>
-#include "assert.h"
-#include "math.h"
+#include "common.cpp"
 
-int PICT_X = 0;//505; //505;//1002; //960; //280;
-int PICT_Y = 0;//621; //621;//900;  //658; //210;
+int WIND_X = 2000;
+int WIND_Y = 700;
 
-const int SPACE = 10; //Space between pictures.
-
-int WIND_X = PICT_X * 2 + 3 * SPACE;
-int WIND_Y = PICT_Y + 2 * SPACE;
+int PICT_X = 0;
+int PICT_Y = 0;
 
 const int BLOCK_SIZE = 10;
 const int MAX_BLOCK_SHIFT = 20;
-
-const double ANGLE_STEP = 0.02;
 
 using namespace sf;
 
@@ -45,6 +39,8 @@ int bound (int inp, int min, int max)
 
 void calculate_depths (Image& left, Image& right, Image& depth)
 	{
+	printf ("pict x = %i, pict y = %i\n", PICT_X, PICT_Y);
+	
 	for (int i = 1; i < PICT_X - 1; i ++)
 		{
 		for (int j = 1; j < PICT_Y - 1; j ++)
@@ -95,52 +91,63 @@ int main (int argc, char** argv)
 		assert (false);
 		}
 	
-	Image temp;
-	Image left;
-	Image right;
-	Image depth;
-	Image temp_res_l;
-	Image temp_res_r;
-	Image _filled1;
-	Image _filled2;
-	Image result;
-	Texture output_texture;
-	
-	if (!temp.loadFromFile  (argv [1])) return -1;
-	
-	Vector2u sz = temp.getSize ();
-	
-	PICT_X = sz.x / 2;
-	PICT_Y = sz.y;
-	
-	WIND_X = PICT_X * 2 + 3 * SPACE; //2 * PICT_X + 3 * SPACE;
-	WIND_Y = PICT_Y + 2 * SPACE; //2 * PICT_Y + 3 * SPACE;
-	
 	RenderWindow App (sf::VideoMode (WIND_X, WIND_Y, 32), "Elijah stereo _demo.");
 	
-	left.create   (sz.x / 2, sz.y, Color (30, 60, 120));
-	right.create  (sz.x / 2, sz.y, Color (60, 120, 30));
-	depth.create  (PICT_X, PICT_Y, Color (200, 100, 100));
-	result.create (PICT_X, PICT_Y, Color (100, 200, 100));
-	temp_res_l.create (PICT_X, PICT_Y, Color (100, 200, 100));
-	temp_res_r.create (PICT_X, PICT_Y, Color (100, 200, 100));
-	_filled1.create (PICT_X, PICT_Y, Color (0, 0, 0));
-	_filled2.create (PICT_X, PICT_Y, Color (0, 0, 0));
+	FILE* settings = fopen (argv [1], "rt");
+	if (!settings) return -1;
 	
-	for (int i = 0; i < sz.x / 2; i ++)
-		for (int j = 0; j < sz.y; j ++)
-			{
-			left.setPixel  (i, j, temp.getPixel (i, j));
-			right.setPixel (i, j, temp.getPixel (i + sz.x / 2, j));
-			}
+	while (true)
+		{
+		if (feof (settings)) break;
+		
+		char command [BUFFER_SIZE] = { };
+		
+		fscanf (settings, "%s", &command);
+		
+		if (command [0] == '-') continue;
+		
+		Image temp;
+		Image left;
+		Image right;
+		Image depth;
+		Image temp_res_l;
+		Image temp_res_r;
+		Image _filled1;
+		Image _filled2;
+		Image result;
+		Texture output_texture;
 	
-	double ang        = -ANGLE_STEP;
-	bool   to_refresh = true;
+		if (!temp.loadFromFile (command)) return -1;
 	
-	calculate_depths (left, right, depth);
+		Vector2u sz = temp.getSize ();
 	
-	//if (!image.saveToFile("result.png"))
-    	//return -1;
+		PICT_X = sz.x / 2;
+		PICT_Y = sz.y;
+	
+		left.create   (sz.x / 2, sz.y, Color (30, 60, 120));
+		right.create  (sz.x / 2, sz.y, Color (60, 120, 30));
+		depth.create  (PICT_X, PICT_Y, Color (0, 0, 0));
+		result.create (PICT_X, PICT_Y, Color (100, 200, 100));
+		temp_res_l.create (PICT_X, PICT_Y, Color (100, 200, 100));
+		temp_res_r.create (PICT_X, PICT_Y, Color (100, 200, 100));
+		_filled1.create (PICT_X, PICT_Y, Color (0, 0, 0));
+		_filled2.create (PICT_X, PICT_Y, Color (0, 0, 0));
+	
+		for (int i = 0; i < sz.x / 2; i ++)
+			for (int j = 0; j < sz.y; j ++)
+				{
+				left.setPixel  (i, j, temp.getPixel (i, j));
+				right.setPixel (i, j, temp.getPixel (i + sz.x / 2, j));
+				}
+	
+		calculate_depths (left, right, depth);
+		
+		concatenate ("_depth_", command);
+		if (!depth.saveToFile(FILENAME_BUF))
+    		return -1;
+		}
+	
+	fclose (settings);
 	
 	return 0;
 	}
